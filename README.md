@@ -1,3 +1,4 @@
+[![Built with askThili](https://msrit.ask.thili.ai/api/v1/public/projects/a9u2865z8e/badge.svg)](https://msrit.ask.thili.ai/b/a9u2865z8e)
 # Creative Writing Prompter
 
 A Python-based next-word prediction and story-generation application built using an n-gram language model.
