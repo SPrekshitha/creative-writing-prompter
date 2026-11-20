@@ -1,20 +1,23 @@
 # Creative Writing Prompter
 
-A simple next-word prediction and story-generation application built from scratch using Python and a trigram language model.
+A Python-based next-word prediction and story-generation application built using an n-gram language model.
 
-The application learns word sequences from a small collection of sample stories and uses probability-based sampling to generate story continuations.
+The application learns word sequences from a small collection of sample stories and uses probability-based sampling to generate creative writing continuations.
 
 ## Features
 
 - Text tokenization and preprocessing.
 - Trigram model construction.
+- Support for different n-gram sizes.
 - Maximum Likelihood Estimation (MLE).
 - Add-k smoothing for unseen words and contexts.
 - Next-word probability suggestions.
 - Randomized story generation.
 - Reproducible generation using a random seed.
-- Command-line interface.
+- Interactive writing mode.
+- Model evaluation against a unigram baseline.
 - Automated tests using pytest.
+- GitHub Actions continuous integration.
 
 ## Technologies Used
 
@@ -24,6 +27,7 @@ The application learns word sequences from a small collection of sample stories 
 - Random module
 - Argparse
 - Pytest
+- GitHub Actions
 
 ## Project Structure
 
@@ -42,7 +46,6 @@ creative-writing-prompter/
 │   └── workflows/
 │       └── ci.yml
 │
-├── .env.example
 ├── .gitignore
 ├── README.md
 ├── pytest.ini
@@ -53,31 +56,29 @@ creative-writing-prompter/
 
 The project currently uses three short sample stories defined directly in `app/core.py`.
 
-The corpus is a small, handcrafted demonstration dataset. It is not an external benchmark dataset.
+This is a small, handcrafted demonstration dataset rather than an external benchmark dataset.
 
-The text is converted to lowercase tokens using regular expressions.
+The stories are converted into lowercase word tokens using regular expressions. Story boundaries are preserved when constructing the n-gram model so that words from separate stories are not incorrectly combined.
 
 ## Installation
 
 Python 3.12 is recommended.
 
-Clone the repository:
+### Clone the repository
 
-```bash
+```powershell
 git clone https://github.com/SPrekshitha/creative-writing-prompter.git
 cd creative-writing-prompter
 ```
 
-Create a virtual environment:
-
-### Windows PowerShell
+### Create a virtual environment
 
 ```powershell
 py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-Install dependencies:
+### Install dependencies
 
 ```powershell
 pip install -r requirements.txt
@@ -85,7 +86,7 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-Check that the application works:
+### 1. Check the application
 
 ```powershell
 python -m app.cli hello
@@ -97,32 +98,82 @@ Expected output:
 Creative Writing Prompter is ready!
 ```
 
-Generate a story:
+### 2. Generate a story
 
 ```powershell
-python -m app.cli generate --prompt "once upon" --length 20 --seed 42
+python -m app.cli generate --prompt "once upon" --length 10 --seed 42
 ```
 
-The `--prompt` argument specifies the starting text.
+The arguments are:
 
-The `--length` argument specifies the number of words to generate after the prompt.
+- `--prompt`: Starting text for generation.
+- `--length`: Number of words to generate after the prompt.
+- `--seed`: Optional random seed for reproducible generation.
 
-The `--seed` argument makes generation reproducible. Running the same command with the same seed produces the same output.
+Using the same prompt, length, and seed produces the same continuation.
 
-## Sample Result
+### 3. Interactive writing mode
+
+```powershell
+python -m app.cli interactive
+```
+
+This mode allows users to:
+
+- Enter a sentence or writing prompt.
+- View the top five next-word suggestions.
+- View the probability associated with each suggestion.
+- Generate a continuation.
+- Exit the application by entering `exit`.
+
+### 4. Evaluate the model
+
+```powershell
+python -m app.cli evaluate
+```
+
+This command evaluates trigram prediction against a unigram baseline.
+
+## Sample Results
+
+### Story Generation
 
 Command:
 
 ```powershell
-python -m app.cli generate --prompt "once upon" --length 20 --seed 42
+python -m app.cli generate --prompt "once upon" --length 10 --seed 42
 ```
 
 Observed output:
 
 ```text
 Generated story:
-once upon once across exploring days return playing under belonged inside after days large after day one loved days morning through a
+once upon once across exploring days return playing under belonged inside after
 ```
+
+### Model Evaluation
+
+Command:
+
+```powershell
+python -m app.cli evaluate
+```
+
+Observed output:
+
+```text
+Model Evaluation
+----------------
+Evaluated tokens: 18
+Trigram accuracy: 0.2222
+Unigram baseline accuracy: 0.2222
+```
+
+The evaluation uses the final story as the test story and the preceding stories as training data. Only test words present in the training vocabulary are evaluated.
+
+Both approaches achieved 22.22% top-1 accuracy on this small test sample. This result does not demonstrate that the trigram model outperforms the unigram baseline.
+
+The evaluation is intended as a basic demonstration of model comparison, not as a statistically reliable benchmark.
 
 ## Model Methodology
 
@@ -130,66 +181,66 @@ once upon once across exploring days return playing under belonged inside after 
 
 The sample stories are converted into lowercase word tokens.
 
-### 2. Trigram Model
+### 2. N-gram Counting
 
-The model uses the previous two words as context to estimate the probability of the next word.
+The model records how frequently a word follows a particular context.
+
+For a trigram model, the previous two words are used as context.
 
 ### 3. Maximum Likelihood Estimation
 
-For an observed context, next-word probabilities are calculated using:
+For an observed context, the next-word probability is calculated using:
 
-P(word | context) = count(context, word) / count(context)
+```text
+P(word | context) =
+count(context, word) / count(context)
+```
 
 ### 4. Add-k Smoothing
 
-Add-k smoothing assigns a positive probability to every word in the vocabulary:
+Add-k smoothing assigns a positive probability to every word in the vocabulary, including words not previously observed after a particular context.
 
-P(word | context) = (count(context, word) + k) / (count(context) + k × vocabulary_size)
+```text
+P(word | context) =
+(count(context, word) + k) /
+(count(context) + k × vocabulary_size)
+```
 
-The default smoothing parameter is k = 1.
+The default smoothing parameter is `k = 1`.
 
 ### 5. Text Generation
 
-The application samples the next word from the probability distribution and repeats this process to generate a continuation.
+The application samples the next word from the calculated probability distribution and repeats the process to generate a continuation.
 
-A local random-number generator accepts an optional seed for reproducible results.
+A local random-number generator supports reproducible generation through an optional seed.
 
-## Evaluation and Baseline
+### 6. Model Evaluation
 
-The current implementation has been verified using automated unit tests.
+The trigram model is compared against a unigram baseline that always predicts the most frequent word in the training data.
 
-The tests cover:
-
-- Tokenization.
-- N-gram counting.
-- Probability normalization.
-- Unseen-context smoothing.
-- Text generation.
-- Reproducibility with a fixed random seed.
-- CLI execution.
-
-A simple baseline for comparison would be selecting the most frequent next word for a given context instead of sampling from a probability distribution.
-
-No formal held-out accuracy or perplexity benchmark has been established yet. The current test results demonstrate functional correctness, not predictive quality on unseen real-world text.
-
-## Limitations
-
-- The training corpus contains only three short sample stories.
-- The model has a limited vocabulary.
-- It predicts using only the previous two words.
-- It does not understand meaning, context, or grammar like a modern language model.
-- Generated stories can be repetitive or grammatically incorrect.
-- Predictions are limited to words present in the training vocabulary.
+Top-1 prediction accuracy is calculated on eligible words in the held-out story.
 
 ## Running Tests
 
-Run:
+Run the test suite:
 
 ```powershell
 pytest -v
 ```
 
-The project includes seven automated tests covering its core functionality.
+The project currently includes 13 automated tests covering:
+
+- Tokenization and preprocessing.
+- N-gram counting.
+- Probability normalization.
+- Smoothing for unseen contexts.
+- Story-boundary preservation.
+- Different n-gram sizes.
+- Story generation.
+- Reproducibility with a fixed random seed.
+- Input validation.
+- Model evaluation.
+- CLI execution.
 
 ## Continuous Integration
 
@@ -197,19 +248,31 @@ GitHub Actions automatically runs the test suite on pushes and pull requests usi
 
 Workflow configuration:
 
-`.github/workflows/ci.yml`
+```text
+.github/workflows/ci.yml
+```
+
+## Limitations
+
+- The training corpus contains only three short sample stories.
+- The model has a limited vocabulary.
+- Trigram prediction uses only the previous two words.
+- The evaluation dataset is very small.
+- The model does not understand meaning or context like a modern language model.
+- Generated stories may be repetitive or grammatically incorrect.
+- Predictions are limited to words in the training vocabulary.
 
 ## Future Improvements
 
 - Train on a larger story dataset.
-- Compare trigram predictions against a unigram baseline.
-- Measure prediction accuracy and perplexity on held-out data.
-- Add support for configurable n-gram sizes.
+- Evaluate using multiple held-out stories.
+- Add perplexity measurements.
 - Improve sentence generation and punctuation handling.
+- Explore higher-order n-gram models.
 
 ## Author
 
-Prekshitha
+Sontam Prekshitha
 
 GitHub Repository:
 

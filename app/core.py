@@ -2,8 +2,7 @@ import re
 import random
 from collections import Counter, defaultdict
 
-
-# Small sample corpus containing three short stories.
+# Three original sample stories used as the training corpus.
 CORPUS = [
     """
     Once upon a time, there lived a young princess.
@@ -34,24 +33,37 @@ CORPUS = [
 ]
 
 
+def tokenize(text):
+    """Convert text into lowercase word tokens."""
+    return re.findall(r"[a-zA-Z']+", text.lower())
+
+
 # Milestone 1: Tokenization
-def milestone_1(corpus=None):
+def milestone_1(corpus=None, preserve_stories=False):
     if corpus is None:
         corpus = CORPUS
 
     if isinstance(corpus, str):
         corpus = [corpus]
 
-    tokens = []
+    stories = [
+        tokenize(story)
+        for story in corpus
+    ]
 
-    for story in corpus:
-        words = re.findall(r"[a-zA-Z']+", story.lower())
-        tokens.extend(words)
+    stories = [story for story in stories if story]
 
-    if not tokens:
+    if not stories:
         raise ValueError("The corpus cannot be empty.")
 
-    return tokens
+    if preserve_stories:
+        return stories
+
+    return [
+        word
+        for story in stories
+        for word in story
+    ]
 
 
 # Milestone 2: N-gram counting
@@ -59,16 +71,29 @@ def milestone_2(tokens, n=3):
     if n < 2:
         raise ValueError("n must be at least 2.")
 
-    if len(tokens) < n:
-        raise ValueError("Not enough tokens to build the model.")
+    if not tokens:
+        raise ValueError("Tokens cannot be empty.")
+
+    # Accept either one token sequence or multiple separate stories.
+    if isinstance(tokens[0], (list, tuple)):
+        sequences = tokens
+    else:
+        sequences = [tokens]
 
     context_counts = defaultdict(Counter)
 
-    for i in range(len(tokens) - n + 1):
-        context = tuple(tokens[i:i + n - 1])
-        next_word = tokens[i + n - 1]
+    for sequence in sequences:
+        if len(sequence) < n:
+            continue
 
-        context_counts[context][next_word] += 1
+        for i in range(len(sequence) - n + 1):
+            context = tuple(sequence[i:i + n - 1])
+            next_word = sequence[i + n - 1]
+
+            context_counts[context][next_word] += 1
+
+    if not context_counts:
+        raise ValueError("Not enough tokens to build the model.")
 
     return dict(context_counts)
 
@@ -109,9 +134,12 @@ def milestone_4(
     if not vocabulary:
         raise ValueError("Vocabulary cannot be empty.")
 
+    if k <= 0:
+        raise ValueError("k must be greater than zero.")
+
     rng = random.Random(seed)
 
-    generated = seed_text.lower().split()
+    generated = tokenize(seed_text)
 
     if not generated:
         generated = ["once", "upon"]
@@ -140,24 +168,100 @@ def milestone_4(
     return " ".join(generated)
 
 
+# Evaluation: Compare trigram prediction with a unigram baseline.
+def evaluate_model(stories, n=3):
+    if len(stories) < 2:
+        raise ValueError(
+            "At least two stories are required for evaluation."
+        )
+
+    if n != 3:
+        raise ValueError("This evaluation currently supports trigrams.")
+
+    training_stories = stories[:-1]
+    test_story = stories[-1]
+
+    training_tokens = [
+        word
+        for story in training_stories
+        for word in story
+    ]
+
+    vocabulary = set(training_tokens)
+
+    model = milestone_2(training_stories, n=n)
+
+    unigram_counts = Counter(training_tokens)
+
+    trigram_correct = 0
+    baseline_correct = 0
+    evaluated = 0
+
+    for i in range(2, len(test_story)):
+        context = tuple(test_story[i - 2:i])
+        actual = test_story[i]
+
+        if actual not in vocabulary:
+            continue
+
+        probabilities = milestone_3(
+            context,
+            model,
+            vocabulary
+        )
+
+        prediction = max(
+            probabilities,
+            key=probabilities.get
+        )
+
+        baseline_prediction = unigram_counts.most_common(1)[0][0]
+
+        trigram_correct += prediction == actual
+        baseline_correct += baseline_prediction == actual
+        evaluated += 1
+
+    if evaluated == 0:
+        raise ValueError(
+            "No test words were in the training vocabulary."
+        )
+
+    return {
+        "evaluated_tokens": evaluated,
+        "trigram_accuracy": trigram_correct / evaluated,
+        "unigram_accuracy": baseline_correct / evaluated
+    }
+
+
 # Milestone 5: Interactive next-word suggestions
 def milestone_5():
     print("\n====================================")
     print("     CREATIVE WRITING PROMPTER")
     print("====================================")
 
-    tokens = milestone_1()
+    stories = milestone_1(preserve_stories=True)
+
+    tokens = [
+        word
+        for story in stories
+        for word in story
+    ]
+
     vocabulary = set(tokens)
-    model = milestone_2(tokens)
+    model = milestone_2(stories)
 
     while True:
-        text = input("\nEnter your sentence (or 'exit'): ").strip()
+        text = input(
+            "\nEnter your sentence (or 'exit'): "
+        ).strip()
 
         if text.lower() == "exit":
-            print("Thank you for using Creative Writing Prompter!")
+            print(
+                "Thank you for using Creative Writing Prompter!"
+            )
             break
 
-        words = re.findall(r"[a-zA-Z']+", text.lower())
+        words = tokenize(text)
 
         if not words:
             print("Please enter some words.")
@@ -182,9 +286,11 @@ def milestone_5():
         for word, probability in top_words:
             print(f"{word}: {probability:.4f}")
 
-        generate = input("\nGenerate a continuation? (yes/no): ")
+        generate = input(
+            "\nGenerate a continuation? (yes/no): "
+        ).strip().lower()
 
-        if generate.lower() == "yes":
+        if generate == "yes":
             generated = milestone_4(
                 tokens,
                 model,

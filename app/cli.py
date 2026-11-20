@@ -1,6 +1,12 @@
 import argparse
 
-from app.core import milestone_1, milestone_2, milestone_4
+from app.core import (
+    milestone_1,
+    milestone_2,
+    milestone_4,
+    milestone_5,
+    evaluate_model
+)
 
 
 def main(argv=None):
@@ -21,7 +27,7 @@ def main(argv=None):
 
     generate_parser = sub.add_parser(
         "generate",
-        help="Generate story continuation."
+        help="Generate a story continuation."
     )
 
     generate_parser.add_argument(
@@ -42,15 +48,31 @@ def main(argv=None):
         help="Random seed for reproducible generation."
     )
 
+    sub.add_parser(
+        "interactive",
+        help="Start interactive next-word suggestions."
+    )
+
+    sub.add_parser(
+        "evaluate",
+        help="Evaluate the model against a unigram baseline."
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "hello":
         print("Creative Writing Prompter is ready!")
 
     elif args.command == "generate":
+        stories = milestone_1(preserve_stories=True)
 
-        tokens = milestone_1()
-        model = milestone_2(tokens)
+        tokens = [
+            word
+            for story in stories
+            for word in story
+        ]
+
+        model = milestone_2(stories)
         vocabulary = set(tokens)
 
         result = milestone_4(
@@ -64,6 +86,25 @@ def main(argv=None):
 
         print("\nGenerated story:")
         print(result)
+
+    elif args.command == "interactive":
+        milestone_5()
+
+    elif args.command == "evaluate":
+        stories = milestone_1(preserve_stories=True)
+        results = evaluate_model(stories)
+
+        print("\nModel Evaluation")
+        print("----------------")
+        print(f"Evaluated tokens: {results['evaluated_tokens']}")
+        print(
+            f"Trigram accuracy: "
+            f"{results['trigram_accuracy']:.4f}"
+        )
+        print(
+            f"Unigram baseline accuracy: "
+            f"{results['unigram_accuracy']:.4f}"
+        )
 
 
 if __name__ == "__main__":
