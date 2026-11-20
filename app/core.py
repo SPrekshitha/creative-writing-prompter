@@ -3,7 +3,7 @@ import random
 from collections import Counter, defaultdict
 
 
-# Sample short-story corpus
+# Small sample corpus containing three short stories.
 CORPUS = [
     """
     Once upon a time, there lived a young princess.
@@ -34,7 +34,7 @@ CORPUS = [
 ]
 
 
-# Milestone 1: Prepare and tokenize the text corpus.
+# Milestone 1: Tokenization
 def milestone_1(corpus=None):
     if corpus is None:
         corpus = CORPUS
@@ -54,7 +54,7 @@ def milestone_1(corpus=None):
     return tokens
 
 
-# Milestone 2: N-gram counting and maximum likelihood estimation.
+# Milestone 2: N-gram counting
 def milestone_2(tokens, n=3):
     if n < 2:
         raise ValueError("n must be at least 2.")
@@ -70,21 +70,11 @@ def milestone_2(tokens, n=3):
 
         context_counts[context][next_word] += 1
 
-    probabilities = {}
-
-    for context, next_words in context_counts.items():
-        total = sum(next_words.values())
-
-        probabilities[context] = {
-            word: count / total
-            for word, count in next_words.items()
-        }
-
-    return probabilities
+    return dict(context_counts)
 
 
-# Milestone 3: Add-k smoothing.
-def milestone_3(context, probabilities, vocabulary, k=1.0):
+# Milestone 3: Add-k smoothing
+def milestone_3(context, model, vocabulary, k=1.0):
     if k <= 0:
         raise ValueError("k must be greater than zero.")
 
@@ -92,44 +82,46 @@ def milestone_3(context, probabilities, vocabulary, k=1.0):
         raise ValueError("Vocabulary cannot be empty.")
 
     context = tuple(context)
-
-    observed = probabilities.get(context, {})
+    observed = model.get(context, {})
 
     total = sum(observed.values())
-
     denominator = total + k * len(vocabulary)
 
-    smoothed = {}
-
-    for word in vocabulary:
-        count = observed.get(word, 0)
-
-        smoothed[word] = (count + k) / denominator
-
-    return smoothed
+    return {
+        word: (observed.get(word, 0) + k) / denominator
+        for word in sorted(vocabulary)
+    }
 
 
-# Milestone 4: Generate text by sampling from probabilities.
-def milestone_4(tokens, probabilities, vocabulary, seed_text, length=20, k=1.0):
+# Milestone 4: Reproducible text generation
+def milestone_4(
+    tokens,
+    model,
+    vocabulary,
+    seed_text,
+    length=20,
+    k=1.0,
+    seed=None
+):
     if length < 0:
         raise ValueError("Length cannot be negative.")
 
     if not vocabulary:
         raise ValueError("Vocabulary cannot be empty.")
 
-    n_minus_one = len(next(iter(probabilities))) if probabilities else 2
+    rng = random.Random(seed)
 
-    generated = list(seed_text.lower().split())
+    generated = seed_text.lower().split()
 
     if not generated:
         generated = ["once", "upon"]
 
-    while len(generated) < length + len(generated):
-        context = tuple(generated[-n_minus_one:])
+    for _ in range(length):
+        context = tuple(generated[-2:])
 
         distribution = milestone_3(
             context,
-            probabilities,
+            model,
             vocabulary,
             k
         )
@@ -137,27 +129,26 @@ def milestone_4(tokens, probabilities, vocabulary, seed_text, length=20, k=1.0):
         words = list(distribution.keys())
         weights = list(distribution.values())
 
-        next_word = random.choices(words, weights=weights, k=1)[0]
+        next_word = rng.choices(
+            words,
+            weights=weights,
+            k=1
+        )[0]
 
         generated.append(next_word)
-
-        if len(generated) >= length + len(seed_text.split()):
-            break
 
     return " ".join(generated)
 
 
-# Milestone 5: CLI support and next-word suggestions.
+# Milestone 5: Interactive next-word suggestions
 def milestone_5():
     print("\n====================================")
     print("     CREATIVE WRITING PROMPTER")
     print("====================================")
 
     tokens = milestone_1()
-
-    vocabulary = sorted(set(tokens))
-
-    probabilities = milestone_2(tokens, n=3)
+    vocabulary = set(tokens)
+    model = milestone_2(tokens)
 
     while True:
         text = input("\nEnter your sentence (or 'exit'): ").strip()
@@ -176,7 +167,7 @@ def milestone_5():
 
         suggestions = milestone_3(
             context,
-            probabilities,
+            model,
             vocabulary
         )
 
@@ -196,10 +187,11 @@ def milestone_5():
         if generate.lower() == "yes":
             generated = milestone_4(
                 tokens,
-                probabilities,
+                model,
                 vocabulary,
                 text,
-                length=10
+                length=10,
+                seed=42
             )
 
             print("\nGenerated story:")
